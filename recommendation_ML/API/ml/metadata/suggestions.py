@@ -1,15 +1,13 @@
-import pandas as pd
 import pickle
 import psycopg2
-import requests
 from django.conf import settings
 from datetime import datetime
-from psycopg2 import OperationalError, errorcodes, errors
+from psycopg2 import OperationalError
 
 class Recommendations:
     def __init__(self):
         
-        path_to_artifacts = "../metadata_model/"
+        path_to_artifacts = "./metadata_model/"
 
         filename1 = path_to_artifacts + "metadata_based_dump.sav"
         with open(filename1 , 'rb') as f1:
@@ -22,10 +20,9 @@ class Recommendations:
         
     def show_recommendations(self, course_id, nrec_items = 6):
         
-        course_index = self.mapping[self.mapping['CourseId']==course_id]['CourseIndex'].values[0]
-            
-        #get similarity values with other movies
-        similarity_score = list(enumerate(self.model[course_index]))
+        course_index = self.mapping[self.mapping['CourseId']==int(course_id)]['CourseIndex']
+        
+        similarity_score = list(enumerate(self.model[int(course_index)]))
         similarity_score = sorted(similarity_score, key=lambda x: x[1], reverse=True)
     
         # Get the scores of the 15 most similar movies. Ignore the first movie.
@@ -33,9 +30,11 @@ class Recommendations:
     
         course_indices = [i[0] for i in similarity_score]
         course_list = [[self.mapping[self.mapping['CourseIndex'] == x]['CourseId'].values[0],self.mapping[self.mapping['CourseIndex'] == x]['CourseName'].values[0]]  for x in course_indices]
+        
         return course_list
     
     def postprocessing(self, scores):
+
         try:
             con1 = psycopg2.connect(database=settings.EUSTARD_DATABASE, user=settings.EUSTARD_USER, password=settings.EUSTARD_PASSWORD, host=settings.EUSTARD_HOST, port= settings.EUSTARD_PORT)
             con2 = psycopg2.connect(database=settings.CONTENTQ_DATABASE, user=settings.CONTENTQ_USER, password=settings.CONTENTQ_PASSWORD, host=settings.CONTENTQ_HOST, port= settings.CONTENTQ_PORT)
@@ -161,26 +160,15 @@ class Recommendations:
 
 
     def predict_recommendations(self, course):
-        access_code = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9ldXN0YXJkLWN1c3RvbWVycy5oZXJva3VhcHAuY29tXC9hcGlcL2F1dGhcL2xvZ2luIiwiaWF0IjoxNjM3NzI4Nzg4LCJuYmYiOjE2Mzc3Mjg3ODgsImp0aSI6ImR0TlBYUllmUjdtckRhZ28iLCJzdWIiOjQ5LCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.XULpQFH4wXmkTrFxFhwGXXb0vGcTR2XMZWndAuwlde4"
-        response = requests.get('https://eustard-customers.herokuapp.com/api/auth/profile', headers = {'Authorization' : 'Bearer %s' % access_code})
+        
+        course_id = course["course_id"]
+        try:
+            scores = self.show_recommendations(course_id)
+            results = self.postprocessing(scores)
+        except Exception as e:
+            return {"data":{}, "status": "Failed", "error": str(e)}
 
-        data = response.json()
-        if data['statusCode'] != 200 :
-            return {"message": "Unauthenticated",
-                    "error": "Invalid Access Token.",
-                    "statusCode": 401,
-                    
-            }
-        else:
-            course_id = course["course_id"]
-            try:
-                #courses, interactions = self.prep_data()
-                scores = self.show_recommendations(course_id)
-                results = self.postprocessing(scores)
-            except Exception as e:
-                return {"data":{}, "status": "Failed", "error": str(e)}
-
-            return results
+        return results
 
     
 

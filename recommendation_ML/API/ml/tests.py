@@ -4,6 +4,7 @@ from API.ml.registry import MLRegistry
 from API.ml.metadata.suggestions import Recommendations
 
 class MLTests(TestCase):
+    
     def test_metadata_algorithm(self):
         input_data = {"course_id":377}
         my_alg = Recommendations()
@@ -11,7 +12,7 @@ class MLTests(TestCase):
         self.assertEqual('Success', response['status'])
         self.assertEqual(0, response['error'])
         #self.assertEqual('<=50K', response['label'])
-
+    
     def test_registry(self):
         registry = MLRegistry()
         self.assertEqual(len(registry.endpoints), 0)
@@ -29,3 +30,7 @@ class MLTests(TestCase):
                     algorithm_description, algorithm_code)
         # there should be one endpoint available
         self.assertEqual(len(registry.endpoints), 1)
+
+        
+
+        
